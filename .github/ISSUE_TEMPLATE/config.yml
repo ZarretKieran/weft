@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discord
+    url: https://discord.com/invite/FGwNu6mDkU
+    about: Fastest way to get help, ask questions, or show off a project you built.
+  - name: GitHub Discussions
+    url: https://github.com/WeaveMindAI/weft/discussions
+    about: Longer-form proposals, design conversations, or questions that need a paper trail.
+  - name: Security vulnerability
+    url: https://github.com/WeaveMindAI/weft/blob/main/SECURITY.md
+    about: Do NOT file security issues publicly. Email contact@weavemind.ai instead.

@@ -1,0 +1,16 @@
+# Heavy dirs not needed in Docker builds
+target/
+dashboard/node_modules/
+dashboard/.svelte-kit/
+extension/
+.git/
+restate-data/
+restate-data-cloud/
+
+# Dev-only files
+.env
+.env.*
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

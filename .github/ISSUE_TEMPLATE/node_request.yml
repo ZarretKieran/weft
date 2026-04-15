@@ -1,0 +1,57 @@
+name: Node request
+description: Request a new node in the catalog.
+labels: ["node-request", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Missing a node? Tell us what you need. Most of the time, "there is no node for X" turns into a new entry in the catalog within a day or two.
+
+        Before filing, check the [node catalog](https://github.com/WeaveMindAI/weft/tree/main/catalog). A close enough existing node is usually better than a new one.
+
+  - type: input
+    id: name
+    attributes:
+      label: Proposed node name
+      placeholder: StripeCheckout, GoogleSheetsRead, ClaudeVision, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-it-does
+    attributes:
+      label: What should the node do?
+      description: One short paragraph. What does it take in, what does it produce, what service or capability does it wrap?
+    validations:
+      required: true
+
+  - type: textarea
+    id: inputs-outputs
+    attributes:
+      label: Inputs and outputs
+      description: List the input ports and output ports you would expect, with types. Use Weft syntax.
+      placeholder: |
+        inputs:
+          - amount: Number (required)
+          - currency: String (required)
+          - customer_email: String (optional)
+        outputs:
+          - session_url: String
+          - session_id: String
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What are you trying to build that needs this node? A concrete scenario helps us prioritize.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: Current workaround (if any)
+      description: Is there a way to get this done today with ExecPython or another node? If yes, describe it briefly. This helps us understand how painful the gap is.
