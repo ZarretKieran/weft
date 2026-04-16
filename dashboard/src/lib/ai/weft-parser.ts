@@ -2482,9 +2482,34 @@ function parseScope(
 					insideNodeBlock = true;
 					i = headerEndLine;
 				}
-			} else if (nodeBodyTrimmed.startsWith('{') && nodeBodyTrimmed.endsWith('}')) {
+			} else if (nodeBodyTrimmed.startsWith('{') && (nodeBodyTrimmed.endsWith('}') || nodeBodyTrimmed.includes('} ->'))) {
 				// One-liner config: { key: val, key: val }
-				const inlineBody = nodeBodyTrimmed.slice(1, -1).trim();
+				// Possibly with post-config outputs: { key: val } -> (out: Type)
+				let configPart = nodeBodyTrimmed;
+				let postConfigArrow: string | null = null;
+
+				// Split off post-config outputs if present: { ... } -> ( ... )
+				if (!nodeBodyTrimmed.endsWith('}') && nodeBodyTrimmed.includes('} ->')) {
+					let depth = 0;
+					let inQ = false;
+					let splitPos = -1;
+					for (let ci = 0; ci < nodeBodyTrimmed.length; ci++) {
+						const ch = nodeBodyTrimmed[ci];
+						if (ch === '"') inQ = !inQ;
+						if (inQ) continue;
+						if (ch === '{') depth++;
+						if (ch === '}') { depth--; if (depth === 0) { splitPos = ci; break; } }
+					}
+					if (splitPos >= 0) {
+						const rest = nodeBodyTrimmed.slice(splitPos + 1).trim();
+						if (rest.startsWith('->')) {
+							configPart = nodeBodyTrimmed.slice(0, splitPos + 1);
+							postConfigArrow = rest.slice(2).trim();
+						}
+					}
+				}
+
+				const inlineBody = configPart.slice(1, -1).trim();
 				if (inlineBody) {
 					const pairs: string[] = [];
 					let current = '';
@@ -2508,6 +2533,31 @@ function parseScope(
 						else setConfigField(currentConfig, currentConfigSpans, errors, key, parseConfigValue(rawValue, errors, lineNum, key), lineNum, lineNum);
 					}
 				}
+
+				// Parse post-config output ports if present
+				if (postConfigArrow && postConfigArrow.startsWith('(')) {
+					const closeIdx = findMatchingParenHelper(postConfigArrow, 0);
+					if (closeIdx >= 0) {
+						const existingNames = new Set(currentOutPorts.map(p => p.name));
+						const outputContent = postConfigArrow.slice(1, closeIdx);
+						for (const item of splitTopLevelComma(outputContent).map(s => s.trim()).filter(s => s && !s.startsWith('#'))) {
+							for (const r of parseInlinePortList(item)) {
+								if ('error' in r) {
+									errors.push({ line: lineNum, message: r.error });
+									continue;
+								}
+								const p = r.port;
+								if (existingNames.has(p.name)) {
+									errors.push({ line: lineNum, message: `Duplicate output port "${p.name}", already declared before the config block` });
+								} else {
+									currentOutPorts.push(p);
+									existingNames.add(p.name);
+								}
+							}
+						}
+					}
+				}
+
 				flushNode();
 			} else if (nodeBodyTrimmed.startsWith('{') && firstBraceHasContentAfter(nodeBodyTrimmed)) {
 				// One-liner style with multi-line content: `{ code: ``` ...`

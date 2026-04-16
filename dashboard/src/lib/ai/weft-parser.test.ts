@@ -478,6 +478,59 @@ node = ExecPython(data: String) -> (result: String) {
 		expect(node.outputs.some(o => o.name === 'extra')).toBe(true);
 	});
 
+	it('parses post-config outputs on one-liner config', () => {
+		const p = parseOk(`
+# Project: PostConfigOneLiner
+input = Text { value: "test" }
+cfg = LlmConfig { model: "anthropic/claude-sonnet-4.6" }
+draft = LlmInference -> (response: JsonDict) { label: "Draft", parseJson: true } -> (subject: String, body: String)
+draft.prompt = input.value
+draft.config = cfg.config
+		`);
+		const node = p.project.nodes.find(n => n.id === 'draft')!;
+		expect(node).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'response')).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'subject')).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'body')).toBeDefined();
+	});
+
+	it('parses post-config outputs on one-liner with multiple pre-config ports', () => {
+		const p = parseOk(`
+# Project: PostConfigOneLinerMulti
+input = Text { value: "test" }
+cfg = LlmConfig { model: "anthropic/claude-sonnet-4.6" }
+qualify = LlmInference -> (response: JsonDict) { label: "Qualify", parseJson: true } -> (is_promising: Boolean, reason: String, summary: String)
+qualify.prompt = input.value
+qualify.config = cfg.config
+		`);
+		const node = p.project.nodes.find(n => n.id === 'qualify')!;
+		expect(node).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'response')).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'is_promising')).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'reason')).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'summary')).toBeDefined();
+	});
+
+	it('parses post-config outputs on multi-line config with } -> on last line', () => {
+		const p = parseOk(`
+# Project: PostConfigMultiLine
+input = Text { value: "test" }
+cfg = LlmConfig { model: "anthropic/claude-sonnet-4.6" }
+qualify = LlmInference -> (response: JsonDict) {
+  label: "Qualify"
+  parseJson: true
+} -> (is_promising: Boolean, reason: String, summary: String)
+qualify.prompt = input.value
+qualify.config = cfg.config
+		`);
+		const node = p.project.nodes.find(n => n.id === 'qualify')!;
+		expect(node).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'response')).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'is_promising')).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'reason')).toBeDefined();
+		expect(node.outputs.find(o => o.name === 'summary')).toBeDefined();
+	});
+
 	// ─── Error Cases ────────────────────────────────────────────────────
 
 	it('reports error on unknown type', () => {

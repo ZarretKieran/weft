@@ -356,14 +356,49 @@ fn try_parse_declaration(
         Some((Declaration::Group(group), body_start_line + 1))
     } else {
         // Parse as node
-        let (config, label, next_i) = if after_ports_clean.starts_with('{') {
-            if after_ports_clean.ends_with('}') && after_ports_clean.len() > 1 {
+        //
+        // Handle one-liner with post-config outputs on the same line:
+        //   LlmInference -> (response: JsonDict) { parseJson: true } -> (summary: String)
+        // Split into config part `{ parseJson: true }` and post-config `-> (summary: String)`.
+        let (after_ports_for_config, one_liner_post_config): (String, Option<String>) = if after_ports_clean.starts_with('{')
+            && !after_ports_clean.ends_with('}')
+        {
+            // Find the closing brace that ends the config, respecting nesting
+            let mut depth = 0i32;
+            let mut in_quote = false;
+            let mut split_pos = None;
+            for (i, c) in after_ports_clean.char_indices() {
+                if c == '"' { in_quote = !in_quote; continue; }
+                if in_quote { continue; }
+                if c == '{' { depth += 1; }
+                if c == '}' {
+                    depth -= 1;
+                    if depth == 0 { split_pos = Some(i); break; }
+                }
+            }
+            if let Some(pos) = split_pos {
+                let config_part = &after_ports_clean[..pos + 1];
+                let rest = after_ports_clean[pos + 1..].trim();
+                if rest.starts_with("->") {
+                    (config_part.to_string(), Some(rest.strip_prefix("->").unwrap().trim().to_string()))
+                } else {
+                    (after_ports_clean.to_string(), None)
+                }
+            } else {
+                (after_ports_clean.to_string(), None)
+            }
+        } else {
+            (after_ports_clean.to_string(), None)
+        };
+
+        let (config, label, next_i) = if after_ports_for_config.starts_with('{') {
+            if after_ports_for_config.ends_with('}') && after_ports_for_config.len() > 1 {
                 // One-liner: { key: val, key: val }. Each pair value may be
                 // a literal, a port wiring (dotted ref), or an inline
                 // expression (`Type { ... }.port` or bare `Type.port`).
                 // The splitter is brace-aware, so inline values with nested
                 // braces stay in the same pair.
-                let body = &after_ports_clean[1..after_ports_clean.len() - 1].trim();
+                let body = &after_ports_for_config[1..after_ports_for_config.len() - 1].trim();
                 let mut config = serde_json::Map::new();
                 let mut label = None;
                 if !body.is_empty() {
@@ -429,7 +464,7 @@ fn try_parse_declaration(
                     }
                 }
                 (config, label, body_start_line + 1)
-            } else if after_ports_clean == "{" {
+            } else if after_ports_for_config == "{" {
                 // Multi-line config block. The parser detects inline expressions
                 // inside config-field values and emits child nodes + edges into
                 // inline_scope. Anon IDs are generated from the parent id + field
@@ -514,9 +549,32 @@ fn try_parse_declaration(
             return None;
         };
 
+        // Handle post-config outputs from one-liner syntax:
+        //   Type -> (response: JsonDict) { parseJson: true } -> (summary: String, score: Number)
+        let mut final_out = out_ports;
+        let mut final_oor = one_of_required;
+        if let Some(ref post_config_str) = one_liner_post_config {
+            if post_config_str.starts_with('(') {
+                if let Some((content, _rest)) = find_matching_paren(post_config_str) {
+                    let existing_names: std::collections::HashSet<String> = final_out.iter().map(|p| p.name.clone()).collect();
+                    let mut post_ports = Vec::new();
+                    let mut post_oor = Vec::new();
+                    parse_port_list(&content, &mut post_ports, &mut post_oor, "out", line_num, errors);
+                    for p in post_ports {
+                        if existing_names.contains(&p.name) {
+                            errors.push(CompileError { line: line_num, message: format!("Duplicate output port '{}', already declared before the config block", p.name) });
+                        } else {
+                            final_out.push(p);
+                        }
+                    }
+                    final_oor.extend(post_oor);
+                }
+            }
+        }
+
         let node = ParsedNode {
             id, nodeType: node_type, label, config,
-            parentId: None, inPorts: in_ports, outPorts: out_ports, oneOfRequired: one_of_required,
+            parentId: None, inPorts: in_ports, outPorts: final_out, oneOfRequired: final_oor,
         };
         Some((Declaration::Node(node), next_i))
     }

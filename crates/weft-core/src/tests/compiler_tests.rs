@@ -1775,3 +1775,67 @@ outer = Group(data: String) -> (result: String) {
     assert!(!pre.scope.iter().any(|s| s == mocked_group), "pre should not be inside mocked group");
     assert!(deep.scope.iter().any(|s| s == mocked_group), "deep should be inside mocked group");
 }
+
+#[test]
+fn post_config_outputs_one_liner() {
+    // Post-config outputs on a single line must be parsed correctly.
+    // This is the syntax LLMs produce most often.
+    let src = r#"# Project: Test
+# Description: test
+
+draft = LlmInference -> (response: JsonDict) { label: "Draft", parseJson: true } -> (subject: String, body: String)
+out = Debug
+out.data = draft.subject
+"#;
+    let project = compile(src).expect("should compile");
+    let draft = project.nodes.iter().find(|n| n.id == "draft").expect("draft node");
+    let port_names: Vec<&str> = draft.outputs.iter().map(|p| p.name.as_str()).collect();
+    assert!(port_names.contains(&"response"), "missing response port: {:?}", port_names);
+    assert!(port_names.contains(&"subject"), "missing subject post-config port: {:?}", port_names);
+    assert!(port_names.contains(&"body"), "missing body post-config port: {:?}", port_names);
+}
+
+#[test]
+fn post_config_outputs_multi_line() {
+    // Same thing but multi-line config block (was already working, regression test).
+    let src = r#"# Project: Test
+# Description: test
+
+draft = LlmInference -> (response: JsonDict) {
+  label: "Draft"
+  parseJson: true
+} -> (subject: String, body: String)
+out = Debug
+out.data = draft.subject
+"#;
+    let project = compile(src).expect("should compile");
+    let draft = project.nodes.iter().find(|n| n.id == "draft").expect("draft node");
+    let port_names: Vec<&str> = draft.outputs.iter().map(|p| p.name.as_str()).collect();
+    assert!(port_names.contains(&"response"), "missing response port: {:?}", port_names);
+    assert!(port_names.contains(&"subject"), "missing subject post-config port: {:?}", port_names);
+    assert!(port_names.contains(&"body"), "missing body post-config port: {:?}", port_names);
+}
+
+#[test]
+fn post_config_outputs_brace_arrow_same_line() {
+    let src = r#"# Project: Test
+# Description: test
+
+qualify = LlmInference -> (response: JsonDict) { label: "Qualify Lead", parseJson: true } -> (is_promising: Boolean, reason: String, summary: String)
+draft = LlmInference -> (response: JsonDict) { label: "Draft Email", parseJson: true } -> (subject: String, body: String)
+out = Debug
+out.data = draft.subject
+"#;
+    let project = compile(src).expect("should compile");
+
+    let qualify = project.nodes.iter().find(|n| n.id == "qualify").expect("qualify node");
+    let q_ports: Vec<&str> = qualify.outputs.iter().map(|p| p.name.as_str()).collect();
+    assert!(q_ports.contains(&"is_promising"), "qualify missing is_promising: {:?}", q_ports);
+    assert!(q_ports.contains(&"reason"), "qualify missing reason: {:?}", q_ports);
+    assert!(q_ports.contains(&"summary"), "qualify missing summary: {:?}", q_ports);
+
+    let draft = project.nodes.iter().find(|n| n.id == "draft").expect("draft node");
+    let d_ports: Vec<&str> = draft.outputs.iter().map(|p| p.name.as_str()).collect();
+    assert!(d_ports.contains(&"subject"), "draft missing subject: {:?}", d_ports);
+    assert!(d_ports.contains(&"body"), "draft missing body: {:?}", d_ports);
+}
