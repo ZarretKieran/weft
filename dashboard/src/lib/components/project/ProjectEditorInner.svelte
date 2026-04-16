@@ -2790,7 +2790,15 @@
 		<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
 		<p class="text-sm font-medium text-zinc-700">The editor works best on a larger screen</p>
 		<p class="text-xs text-zinc-400 max-w-xs">You can browse your projects and view executions on mobile, but the visual editor needs a desktop or tablet for the full experience.</p>
-		<a href="/dashboard" class="mt-2 px-4 py-2 text-xs font-medium bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors">Back to Dashboard</a>
+		<div class="flex items-center gap-3 mt-2">
+			{#if onSetViewMode}
+				<button
+					onclick={() => onSetViewMode?.('runner')}
+					class="px-4 py-2 text-xs font-medium bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors"
+				>Open Runner</button>
+			{/if}
+			<a href="/dashboard" class="px-4 py-2 text-xs font-medium rounded-lg transition-colors {onSetViewMode ? 'border border-zinc-200 text-zinc-600 hover:bg-zinc-50' : 'bg-zinc-900 text-white hover:bg-zinc-800'}">Back to Dashboard</a>
+		</div>
 	</div>
 </div>
 
