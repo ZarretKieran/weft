@@ -407,7 +407,9 @@ fn derive_ports_from_form_fields(
             }
         };
 
-        let required = field.get("required").and_then(|v| v.as_bool()).unwrap_or(false);
+        // Form field ports default to required (same as the language default).
+        // Set "required": false explicitly to make a port optional.
+        let required = field.get("required").and_then(|v| v.as_bool()).unwrap_or(true);
 
         for port_template in &spec.adds_inputs {
             let portType = materialize_auto_type_vars(&port_template.port_type, key);
@@ -1539,7 +1541,18 @@ pub fn validate_edge_types(wf: &ProjectDefinition, errors: &mut Vec<String>) {
             if src_wire.is_unresolved() || tgt_wire.is_unresolved() {
                 continue;
             }
-            if !WeftType::is_compatible(&src_wire, &tgt_wire) {
+            // Null at the top level of the source type is never a type error.
+            // Required ports skip the node on null (null propagation).
+            // Optional ports pass null through to the node's code.
+            // Either way, the executor handles it. Strip Null from the source
+            // before checking compatibility so that e.g. String | Null flowing
+            // into String (required or optional) is accepted.
+            let effective_src = if src_wire.contains_null() {
+                src_wire.without_null()
+            } else {
+                src_wire.clone()
+            };
+            if !WeftType::is_compatible(&effective_src, &tgt_wire) {
                 errors.push(format!(
                     "Type mismatch: {}.{} outputs {} (wire: {}) but {}.{} expects {} (wire: {})",
                     edge.source, source_port_name, sp.portType, src_wire,

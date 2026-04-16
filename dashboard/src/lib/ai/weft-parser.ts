@@ -3857,7 +3857,25 @@ export function resolveAndValidateTypes(
 
 		if (isUnresolved(srcWire) || isUnresolved(tgtWire)) continue;
 
-		if (!isWeftTypeCompatible(srcWire, tgtWire)) {
+		// Null at the top level of the source type is never a type error.
+		// Required ports skip the node on null (null propagation).
+		// Optional ports pass null through to the node's code.
+		// Either way, the executor handles it. Strip Null before checking
+		// compatibility so that e.g. String | Null into String is accepted.
+		let effectiveSrc = srcWire;
+		if (srcWire.includes('Null')) {
+			const parsed = parseWeftType(srcWire);
+			if (parsed && parsed.kind === 'union') {
+				const filtered = parsed.types.filter(t => !(t.kind === 'primitive' && t.value === 'Null'));
+				if (filtered.length > 0) {
+					effectiveSrc = filtered.length === 1
+						? weftTypeToString(filtered[0])
+						: weftTypeToString({ kind: 'union', types: filtered });
+				}
+			}
+		}
+
+		if (!isWeftTypeCompatible(effectiveSrc, tgtWire)) {
 			errors.push({
 				line: (edge as any)._line ?? 0,
 				message: `Type mismatch: ${edge.source}.${edge.sourceHandle} outputs ${srcWire} but ${edge.target}.${edge.targetHandle} expects ${tgtWire}`,

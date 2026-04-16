@@ -97,7 +97,9 @@ export function deriveInputsFromFields(
 			ports.push({
 				name: resolvePortName(t.name, f.key),
 				portType: resolveAutoTypeVars(t.portType, f.key),
-				required: f.required === true,
+				// Form field ports default to required (same as the language default).
+				// Set "required": false explicitly to make a port optional.
+				required: f.required !== false,
 			});
 		}
 	}

@@ -135,6 +135,212 @@ fn edge_incompatible_list_different_inner() {
 }
 
 // =========================================================================
+// Null stripping: T | Null into T is accepted (null propagation handles it)
+// =========================================================================
+
+fn null_t() -> WeftType { WeftType::primitive(WeftPrimitive::Null) }
+
+fn required_port(name: &str, pt: WeftType) -> PortDefinition {
+    port(name, pt, LaneMode::Single, true)
+}
+
+fn optional_port(name: &str, pt: WeftType) -> PortDefinition {
+    port(name, pt, LaneMode::Single, false)
+}
+
+#[test]
+fn null_union_into_required_port_accepted() {
+    // String | Null -> required String: null propagation skips the node. Not a type error.
+    let wf = make_wf(vec![
+        make_node("a", vec![], vec![single_port("out", WeftType::union(vec![s(), null_t()]))]),
+        make_node("b", vec![required_port("in", s())], vec![]),
+    ], vec![edge("a", "out", "b", "in")]);
+    let mut errors = vec![];
+    validate_edge_types(&wf, &mut errors);
+    assert!(errors.is_empty(), "String | Null -> required String should be accepted: {:?}", errors);
+}
+
+#[test]
+fn null_union_into_optional_port_accepted() {
+    // String | Null -> optional String: the node runs, receives null. Not a type error.
+    let wf = make_wf(vec![
+        make_node("a", vec![], vec![single_port("out", WeftType::union(vec![s(), null_t()]))]),
+        make_node("b", vec![optional_port("in", s())], vec![]),
+    ], vec![edge("a", "out", "b", "in")]);
+    let mut errors = vec![];
+    validate_edge_types(&wf, &mut errors);
+    assert!(errors.is_empty(), "String | Null -> optional String should be accepted: {:?}", errors);
+}
+
+#[test]
+fn multi_type_null_union_into_matching_union_accepted() {
+    // String | Number | Null -> required String | Number: strip Null, rest matches.
+    let wf = make_wf(vec![
+        make_node("a", vec![], vec![single_port("out", WeftType::union(vec![s(), n(), null_t()]))]),
+        make_node("b", vec![required_port("in", WeftType::union(vec![s(), n()]))], vec![]),
+    ], vec![edge("a", "out", "b", "in")]);
+    let mut errors = vec![];
+    validate_edge_types(&wf, &mut errors);
+    assert!(errors.is_empty(), "String | Number | Null -> required String | Number should be accepted: {:?}", errors);
+}
+
+#[test]
+fn null_union_into_wrong_type_still_errors() {
+    // String | Null -> required Number: after stripping Null, String vs Number is still a mismatch.
+    let wf = make_wf(vec![
+        make_node("a", vec![], vec![single_port("out", WeftType::union(vec![s(), null_t()]))]),
+        make_node("b", vec![required_port("in", n())], vec![]),
+    ], vec![edge("a", "out", "b", "in")]);
+    let mut errors = vec![];
+    validate_edge_types(&wf, &mut errors);
+    assert!(!errors.is_empty(), "String | Null -> required Number should still be a type error");
+}
+
+#[test]
+fn bare_null_into_required_port_accepted() {
+    // Null -> required String: null propagation skips. Not a type error.
+    // (without_null on bare Null returns Null, which is not compatible with String,
+    // but this case never happens in practice because a source that only outputs Null
+    // means the node always skips. Accepting it or rejecting it are both defensible.
+    // We reject it: bare Null is not String.)
+    let wf = make_wf(vec![
+        make_node("a", vec![], vec![single_port("out", null_t())]),
+        make_node("b", vec![required_port("in", s())], vec![]),
+    ], vec![edge("a", "out", "b", "in")]);
+    let mut errors = vec![];
+    validate_edge_types(&wf, &mut errors);
+    assert!(!errors.is_empty(), "bare Null -> required String should be a type error (always-skip wiring is suspicious)");
+}
+
+#[test]
+fn non_null_union_into_narrow_still_errors() {
+    // String | Number -> String (no Null involved): still a type error.
+    // Null stripping should not affect non-null unions.
+    let wf = make_wf(vec![
+        make_node("a", vec![], vec![single_port("out", WeftType::union(vec![s(), n()]))]),
+        make_node("b", vec![required_port("in", s())], vec![]),
+    ], vec![edge("a", "out", "b", "in")]);
+    let mut errors = vec![];
+    validate_edge_types(&wf, &mut errors);
+    assert!(!errors.is_empty(), "String | Number -> required String should still be a type error");
+}
+
+#[test]
+fn null_in_list_is_not_stripped() {
+    // List[String | Null] -> List[String]: Null is inside the list, not at depth 0.
+    // The list itself is not nullable, it contains nullable elements. This IS a type error
+    // because the consuming node expects List[String] and would receive nulls inside the list.
+    let wf = make_wf(vec![
+        make_node("a", vec![], vec![single_port("out", WeftType::list(WeftType::union(vec![s(), null_t()])))]),
+        make_node("b", vec![required_port("in", ls())], vec![]),
+    ], vec![edge("a", "out", "b", "in")]);
+    let mut errors = vec![];
+    validate_edge_types(&wf, &mut errors);
+    assert!(!errors.is_empty(), "List[String | Null] -> List[String] should be a type error (Null is inside the list)");
+}
+
+// =========================================================================
+// Form field port generation with required flag
+// =========================================================================
+
+#[test]
+fn form_field_required_true_sets_port_required() {
+    // A HumanQuery with a required display field should generate a required input port.
+    let src = r#"# Project: T
+
+source = Text { value: "hello" }
+review = HumanQuery {
+  title: "Test"
+  fields: [{"fieldType": "display", "key": "summary", "required": true}]
+}
+review.summary = source.value
+"#;
+    let mut project = weft_core::weft_compiler::compile(src).expect("parse");
+    let registry = crate::registry::NodeTypeRegistry::new();
+    crate::enrich::enrich_project(&mut project, &registry).expect("enrich ok");
+    let review = project.nodes.iter().find(|n| n.id == "review").expect("review node");
+    let summary_port = review.inputs.iter().find(|p| p.name == "summary").expect("summary port");
+    assert!(summary_port.required, "display field with required:true should produce a required port");
+}
+
+#[test]
+fn form_field_default_is_required() {
+    // A HumanQuery display field without explicit required should default to required
+    // (same as the language default for all ports).
+    let src = r#"# Project: T
+
+source = Text { value: "hello" }
+review = HumanQuery {
+  title: "Test"
+  fields: [{"fieldType": "display", "key": "summary"}]
+}
+review.summary = source.value
+"#;
+    let mut project = weft_core::weft_compiler::compile(src).expect("parse");
+    let registry = crate::registry::NodeTypeRegistry::new();
+    crate::enrich::enrich_project(&mut project, &registry).expect("enrich ok");
+    let review = project.nodes.iter().find(|n| n.id == "review").expect("review node");
+    let summary_port = review.inputs.iter().find(|p| p.name == "summary").expect("summary port");
+    assert!(summary_port.required, "display field without explicit required should default to required");
+}
+
+#[test]
+fn form_field_required_false_sets_port_optional() {
+    // A HumanQuery display field with explicit required: false is optional.
+    let src = r#"# Project: T
+
+source = Text { value: "hello" }
+review = HumanQuery {
+  title: "Test"
+  fields: [{"fieldType": "display", "key": "summary", "required": false}]
+}
+review.summary = source.value
+"#;
+    let mut project = weft_core::weft_compiler::compile(src).expect("parse");
+    let registry = crate::registry::NodeTypeRegistry::new();
+    crate::enrich::enrich_project(&mut project, &registry).expect("enrich ok");
+    let review = project.nodes.iter().find(|n| n.id == "review").expect("review node");
+    let summary_port = review.inputs.iter().find(|p| p.name == "summary").expect("summary port");
+    assert!(!summary_port.required, "display field with required:false should produce an optional port");
+}
+
+#[test]
+fn form_field_required_port_accepts_nullable_source() {
+    // The original bug: String | Null from parallel lanes flowing into a required
+    // display field port on HumanQuery should not be a type error.
+    let src = r#"# Project: T
+# Description: T
+
+grp = Group(items: List[String | Null]) -> (out: List[String | Null]) {
+  # parallel review
+
+  review = HumanQuery {
+    title: "Review"
+    fields: [{"fieldType": "display", "key": "data", "required": true}]
+  }
+  review.data = self.items
+
+  self.out = self.items
+}
+"#;
+    let mut project = weft_core::weft_compiler::compile(src).expect("parse");
+    let registry = crate::registry::NodeTypeRegistry::new();
+    let enrich_result = crate::enrich::enrich_project(&mut project, &registry);
+    // The enrichment should succeed without type errors about the display port.
+    // The key check: no error message containing "Type mismatch" for the review.data edge.
+    match enrich_result {
+        Ok(()) => {} // good
+        Err(errors) => {
+            let type_errors: Vec<&String> = errors.iter()
+                .filter(|e| e.contains("Type mismatch") && e.contains("review") && e.contains("data"))
+                .collect();
+            assert!(type_errors.is_empty(),
+                "String | Null into required display field should not be a type error: {:?}", type_errors);
+        }
+    }
+}
+
+// =========================================================================
 // Expand/Gather wire type
 // =========================================================================
 
