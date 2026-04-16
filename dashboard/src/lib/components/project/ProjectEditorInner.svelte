@@ -2774,8 +2774,28 @@
 	/>
 {/if}
 
+<!-- Mobile notice -->
+<div class="flex flex-col bg-white h-full w-full md:hidden">
+	<div class="flex items-center justify-between px-4 py-3 border-b border-zinc-200">
+		<a href="/dashboard" class="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition-colors">
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+			<span class="text-sm font-medium">Dashboard</span>
+		</a>
+		<div class="flex items-center gap-3">
+			<a href="/executions" class="text-xs text-zinc-400 hover:text-zinc-700 transition-colors">Executions</a>
+			<a href="/usage" class="text-xs text-zinc-400 hover:text-zinc-700 transition-colors">Usage</a>
+		</div>
+	</div>
+	<div class="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+		<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+		<p class="text-sm font-medium text-zinc-700">The editor works best on a larger screen</p>
+		<p class="text-xs text-zinc-400 max-w-xs">You can browse your projects and view executions on mobile, but the visual editor needs a desktop or tablet for the full experience.</p>
+		<a href="/dashboard" class="mt-2 px-4 py-2 text-xs font-medium bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors">Back to Dashboard</a>
+	</div>
+</div>
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="flex flex-col h-full w-full">
+<div class="hidden md:flex flex-col h-full w-full">
 	<!-- IDE Header Bar -->
 	<div class="flex items-center justify-between px-4 bg-white border-b border-zinc-200 z-20 shrink-0" style="height: 41px;">
 		<div class="flex items-center gap-3">

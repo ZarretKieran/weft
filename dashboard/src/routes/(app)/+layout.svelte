@@ -100,6 +100,11 @@
 		}
 	}
 	
+	let mobileMenuOpen = $state(false);
+
+	// Close mobile menu on navigation
+	afterNavigate(() => { mobileMenuOpen = false; });
+
 	function handleNavClick(e: MouseEvent, item: { href: string; label: string; action?: string }) {
 		// If item has an action, prevent default navigation and notify parent
 		if (item.action) {
@@ -109,7 +114,7 @@
 			}
 			return;
 		}
-		
+
 		// If in iframe, notify parent of nav click (parent may want to handle it)
 		if (browser && window.parent !== window) {
 			window.parent.postMessage({ type: 'navClick', href: item.href, label: item.label }, '*');
@@ -121,9 +126,9 @@
 <TutorialOverlay bind:this={tutorialRef} />
 
 <div class="min-h-screen bg-background">
-	<!-- Floating Navbar -->
+	<!-- Floating Navbar (desktop) -->
 	{#if !$page.url.pathname.match(/^\/projects\/[^/]+$/) && !$page.url.pathname.match(/^\/tasks\//)}
-		<nav class="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+		<nav class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden md:block">
 			<div
 				class="flex items-center gap-1 px-1.5 py-1.5 rounded-2xl"
 				style="background: rgba(255,255,255,0.55); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); border: 1px solid rgba(255,255,255,0.7); box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.6);"
@@ -175,6 +180,68 @@
 				{/if}
 			</div>
 		</nav>
+
+		<!-- Mobile navbar -->
+		<nav class="fixed top-0 left-0 right-0 z-50 md:hidden">
+			<div class="flex items-center justify-between px-4 py-3" style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.06);">
+				<a href="/dashboard" class="flex items-center gap-2">
+					<img src="/web_logo.png" alt="WeaveMind" class="w-5 h-5" />
+					<span class="text-sm font-semibold text-zinc-800">WeaveMind</span>
+				</a>
+				<div class="flex items-center gap-3">
+					{#if user}
+						{#if user.image}
+							<img src={user.image} alt={user.name} class="w-6 h-6 rounded-full" />
+						{:else}
+							<div class="w-6 h-6 rounded-full bg-zinc-200 flex items-center justify-center text-[10px] font-semibold text-zinc-600">
+								{user.username?.charAt(0).toUpperCase() || user.name?.charAt(0).toUpperCase() || '?'}
+							</div>
+						{/if}
+					{/if}
+					<button
+						onclick={() => mobileMenuOpen = !mobileMenuOpen}
+						class="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors"
+						aria-label="Toggle menu"
+					>
+						<svg class="w-5 h-5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							{#if mobileMenuOpen}
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+							{:else}
+								<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+							{/if}
+						</svg>
+					</button>
+				</div>
+			</div>
+
+			{#if mobileMenuOpen}
+				<div class="border-b border-zinc-100 py-2 px-4 space-y-1" style="background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
+					{#each navItems.filter(i => i.variant !== 'danger') as item}
+						{@const isActive = $page.url.pathname.startsWith(item.href)}
+						<a
+							href={item.href}
+							target={item.href.startsWith('http') ? '_blank' : undefined}
+							rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+							onclick={(e) => handleNavClick(e, item)}
+							class="block px-3 py-2 text-sm font-medium rounded-lg transition-colors {isActive ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'}"
+						>
+							{item.label}
+						</a>
+					{/each}
+
+					{#each navItems.filter(i => i.variant === 'danger') as item}
+						<button
+							onclick={(e) => handleNavClick(e, item)}
+							class="block w-full text-left px-3 py-2 text-sm font-medium rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+						>
+							{item.label}
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</nav>
+		<!-- Mobile spacer for fixed navbar -->
+		<div class="h-14 md:hidden"></div>
 	{/if}
 
 	<!-- Main Content - Full height, content starts from top -->
