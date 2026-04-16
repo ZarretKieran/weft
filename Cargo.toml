@@ -44,7 +44,7 @@ reqwest = { version = "0.12", features = ["json", "multipart"] }
 restate-sdk = "0.7"
 
 # LLM - use local path during development, switch to crates.io for release
-minillmlib = "0.3.3"
+minillmlib = "0.3.4"
 
 # Kubernetes
 kube = { version = "3.0.1", features = ["client", "runtime", "rustls-tls"] }
