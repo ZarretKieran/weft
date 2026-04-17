@@ -22,6 +22,18 @@ require_git_repo() {
   git -C "$dir" rev-parse --git-dir >/dev/null 2>&1 || die "Not a git repository: $dir"
 }
 
+ensure_no_in_progress_git_operation() {
+  local dir="$1"
+  local git_dir
+  git_dir="$(git -C "$dir" rev-parse --git-dir)"
+
+  [[ -f "$git_dir/MERGE_HEAD" ]] && die "Merge already in progress in $dir. Resolve it before running reconciliation."
+  [[ -d "$git_dir/rebase-merge" ]] && die "Rebase already in progress in $dir. Resolve it before running reconciliation."
+  [[ -d "$git_dir/rebase-apply" ]] && die "Rebase already in progress in $dir. Resolve it before running reconciliation."
+  [[ -f "$git_dir/CHERRY_PICK_HEAD" ]] && die "Cherry-pick already in progress in $dir. Resolve it before running reconciliation."
+  return 0
+}
+
 is_junk_path() {
   local path="$1"
   case "$path" in
@@ -81,6 +93,7 @@ snapshot_local_changes_if_needed() {
 
 update_upstream_mirror() {
   require_git_repo "$UPSTREAM_DIR"
+  ensure_no_in_progress_git_operation "$UPSTREAM_DIR"
   log "Updating clean upstream mirror in $UPSTREAM_DIR"
   git -C "$UPSTREAM_DIR" checkout "$UPSTREAM_MIRROR_BRANCH" >/dev/null 2>&1
   git -C "$UPSTREAM_DIR" fetch origin --prune
@@ -89,6 +102,7 @@ update_upstream_mirror() {
 
 prepare_local_main() {
   require_git_repo "$WEFT_DIR"
+  ensure_no_in_progress_git_operation "$WEFT_DIR"
   log "Preparing local canonical checkout in $WEFT_DIR"
   git -C "$WEFT_DIR" config rerere.enabled true
   git -C "$WEFT_DIR" checkout "$LOCAL_BRANCH" >/dev/null 2>&1
@@ -148,7 +162,11 @@ merge_upstream_into_local_main() {
 
 push_local_main() {
   log "Pushing $LOCAL_BRANCH to personal/$LOCAL_BRANCH"
-  git -C "$WEFT_DIR" push personal "$LOCAL_BRANCH"
+  if git -C "$WEFT_DIR" push personal "$LOCAL_BRANCH"; then
+    return 0
+  fi
+
+  die "Push to personal/$LOCAL_BRANCH failed. Fetch personal, inspect divergence, and rerun reconciliation."
 }
 
 main() {
