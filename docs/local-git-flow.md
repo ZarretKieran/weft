@@ -1,14 +1,14 @@
 # Local Git Flow
 
-This checkout has two distinct roles. Keep them separate.
+This setup has two distinct roles. Keep them separate.
 
 ## Roles
 
 - `/Users/zarretkieran/weft`
   - Active local development checkout.
-  - Local customizations live on `local/minimax-support`.
-  - Push this branch to `personal/local/minimax-support`.
-  - Promote reviewed local changes into `personal/main` without pushing to `origin`.
+  - Canonical local Weft installation.
+  - Local customizations and reconciled upstream changes both land on `main`.
+  - `main` tracks `personal/main`.
 - `/Users/zarretkieran/weft-upstream`
   - Clean upstream mirror.
   - Tracks `origin/main` on branch `upstream-main`.
@@ -24,80 +24,75 @@ This checkout has two distinct roles. Keep them separate.
 - `origin/main`
   - Canonical upstream history. Read from it. Do not push to it.
 - `personal/main`
-  - Your fork's durable default branch.
-  - Keep it current with the latest reviewed local customization state.
-  - It may differ from upstream `main`.
-- `local/minimax-support`
-  - Active customization branch in the local checkout.
-  - New local Weft changes land here first.
+  - Your durable integration branch.
+  - Keep it current with the merged result of local Weft work plus upstream `origin/main`.
+- `main`
+  - Active branch in `/Users/zarretkieran/weft`.
+  - Local Weft changes land here first.
+  - This branch should match `personal/main` after every successful sync run.
 - `upstream-main`
   - Branch used only inside `/Users/zarretkieran/weft-upstream`.
   - Mirrors upstream `origin/main`.
 
 ## Rules
 
-- Never do local development on `main`.
-- Never auto-pull into `/Users/zarretkieran/weft`.
+- Do local Weft development in `/Users/zarretkieran/weft` on `main`.
+- Never point local `main` back at `origin/main`.
 - Only fast-forward update `/Users/zarretkieran/weft-upstream`.
-- Integrate upstream changes into `local/minimax-support` by cherry-picking commits from the clean mirror.
-- If a cherry-pick conflicts, stop immediately and report the conflict. Do not resolve by force, reset, or skip silently.
-- After a successful integration pass, push `local/minimax-support` to `personal`.
-- After local work is reviewed and stable, fast-forward `personal/main` to the desired local commit. Do not push local changes to `origin/main`.
+- Keep `/Users/zarretkieran/weft/main` aligned with `personal/main`.
+- Integrate upstream changes by merging `origin/main` into local `main`.
+- If that merge conflicts, the cron agent should resolve the conflict in `/Users/zarretkieran/weft`, verify the result, and then complete the merge.
+- After a successful integration pass, push `main` to `personal/main`.
+- Do not push local changes to `origin/main`.
 - Never run database reset, cleanup, or project-deleting commands as part of git sync.
 
-## Standard Update Loop
+## Standard Local Work
 
-From the clean mirror:
-
-```bash
-git -C /Users/zarretkieran/weft-upstream fetch origin --prune
-git -C /Users/zarretkieran/weft-upstream pull --ff-only origin main
-```
-
-From the customized checkout:
+Make Weft changes directly in `/Users/zarretkieran/weft` on `main`:
 
 ```bash
-git -C /Users/zarretkieran/weft checkout local/minimax-support
-git -C /Users/zarretkieran/weft fetch origin --prune
-git -C /Users/zarretkieran/weft log --oneline --reverse HEAD..origin/main
+git -C /Users/zarretkieran/weft checkout main
+git -C /Users/zarretkieran/weft commit -am "Describe the local Weft change"
+git -C /Users/zarretkieran/weft push personal main
 ```
 
-If the upstream commits look safe to carry over, cherry-pick them one by one:
+If you created new files, add them first:
 
 ```bash
-git -C /Users/zarretkieran/weft cherry-pick <commit>
-git -C /Users/zarretkieran/weft cherry-pick <next-commit>
-git -C /Users/zarretkieran/weft push personal local/minimax-support
+git -C /Users/zarretkieran/weft add path/to/new-file
+git -C /Users/zarretkieran/weft commit -m "Describe the local Weft change"
+git -C /Users/zarretkieran/weft push personal main
 ```
 
-## Promotion To Personal Main
+## Standard Reconciliation Loop
 
-When local customization work is ready to become the new default state of your fork, promote it to `personal/main` only.
-
-First make sure the working branch is up to date on the fork:
+The deterministic fast path is:
 
 ```bash
-git -C /Users/zarretkieran/weft checkout local/minimax-support
-git -C /Users/zarretkieran/weft push personal local/minimax-support
+./scripts/reconcile-local-main.sh
 ```
 
-If `personal/main` is an ancestor of `local/minimax-support`, fast-forward the fork's main directly:
+What it does:
 
-```bash
-git -C /Users/zarretkieran/weft push personal local/minimax-support:main
-```
+1. Updates `/Users/zarretkieran/weft-upstream` with `fetch` plus `pull --ff-only`.
+2. Checks out `/Users/zarretkieran/weft/main`.
+3. Fast-forwards local `main` from `personal/main`.
+4. Creates an automatic snapshot commit if there are unstaged or uncommitted local source changes.
+5. Merges `origin/main` into local `main`.
+6. Pushes the merged result to `personal/main`.
 
-If that push is rejected because the histories diverged, create a temporary local branch from `personal/main`, merge deliberately, and then push to `personal/main`. Do not involve `origin/main` in that process.
+If the merge conflicts, the script stops and leaves the repository in the conflict state for an agent or human to resolve. The resolution still happens in `/Users/zarretkieran/weft` on `main`.
 
 ## Automation Policy
 
 The weekly Codex automation should follow this exact flow:
 
-1. Update `/Users/zarretkieran/weft-upstream` with `fetch` plus `pull --ff-only`.
-2. Compare upstream commits not yet present on `local/minimax-support`.
-3. Cherry-pick only clean, reviewable commits onto `local/minimax-support`.
-4. Stop on conflict and open an inbox item with the failing commit hash and files involved.
-5. Push successful integrations to `personal/local/minimax-support`.
-6. Do not update `personal/main` automatically unless the automation prompt is explicitly expanded to do promotion as well.
+1. Run `/Users/zarretkieran/weft/scripts/reconcile-local-main.sh`.
+2. If the script completes cleanly, stop.
+3. If the script stops on a merge conflict, resolve that conflict directly in `/Users/zarretkieran/weft` on `main`.
+4. Run focused verification for the files involved.
+5. Complete the merge and push `main` to `personal/main`.
+6. Leave `/Users/zarretkieran/weft` checked out on the merged `main` result so the local Weft installation is the current reconciled state.
+7. Use a PR-style fallback only if the agent cannot safely land a direct merge after inspection and verification.
 
 The automation must treat `docs/local-git-flow.md` as the local policy file for future runs.

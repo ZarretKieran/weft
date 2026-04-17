@@ -62,7 +62,7 @@ cp .env.example .env
 
 Open http://localhost:5173 and build your first project. A tour of the dashboard and a walkthrough of the language live in the [Getting Started](https://weavemind.ai/docs/hello-world) guide.
 
-If this checkout is being used as a customized local Weft build, follow [docs/local-git-flow.md](docs/local-git-flow.md) for the branch, fork, promotion, and upstream-sync policy. Do not auto-pull into the customized checkout.
+If this checkout is being used as a customized local Weft build, follow [docs/local-git-flow.md](docs/local-git-flow.md) for the main-branch reconciliation policy, upstream mirror flow, and automation contract. The local canonical checkout lives on `main`, which tracks `personal/main`, not `origin/main`.
 
 ### VS Code
 
