@@ -33,7 +33,21 @@ impl Node for TelegramConfigNode {
     }
 
     async fn execute(&self, ctx: ExecutionContext) -> NodeResult {
-        NodeResult::completed(serde_json::json!({ "config": ctx.config }))
+        let mut config = ctx.config.clone();
+        let missing_token = config.get("botToken")
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim().is_empty())
+            .unwrap_or(true);
+
+        if missing_token {
+            if let Ok(env_token) = std::env::var("TELEGRAM_BOT_TOKEN") {
+                if !env_token.trim().is_empty() {
+                    config["botToken"] = serde_json::json!(env_token);
+                }
+            }
+        }
+
+        NodeResult::completed(serde_json::json!({ "config": config }))
     }
 }
 

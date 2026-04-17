@@ -20,6 +20,7 @@ export const telegramConfigNode: NodeTemplate = {
 	setupGuide: [
 		'This node stores your Telegram bot token.',
 		'Connect its "config" output to TelegramReceive or TelegramSend nodes.',
+		'If the field is left blank, Weft will fall back to TELEGRAM_BOT_TOKEN from the local server environment.',
 		'',
 		'--- Creating a Telegram Bot ---',
 		'1. Open Telegram and search for @BotFather',

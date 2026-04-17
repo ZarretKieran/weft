@@ -64,7 +64,8 @@ impl Node for TelegramReceiveNode {
     ) -> Result<TriggerHandle, TriggerError> {
         let bot_token = config.require_str("botToken")
             .map_err(|_| TriggerError::Config("Missing 'botToken' in config. Connect a TelegramConfig node.".to_string()))?;
-        let chat_id_filter = config.get_str("chatId");
+        let chat_id_filter = config.get_str("chatId")
+            .or_else(|| std::env::var("TELEGRAM_CHAT_ID").ok().filter(|s| !s.trim().is_empty()));
 
         ctx.spawn(&config, TriggerCategory::Polling, move |emit, shutdown| async move {
             let client = reqwest::Client::new();

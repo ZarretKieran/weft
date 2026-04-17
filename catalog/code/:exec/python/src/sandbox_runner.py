@@ -14,12 +14,20 @@ import json
 import base64
 import subprocess
 import re
+import importlib.util
 
 # Packages pre-installed in the Docker image. Skip pip install for these.
 PRE_INSTALLED = {
     "numpy", "pandas", "requests", "pillow", "pyyaml",
     "beautifulsoup4", "bs4", "lxml", "scipy", "scikit-learn",
     "matplotlib", "httpx", "aiohttp",
+}
+
+IMPORT_NAMES = {
+    "pillow": "PIL",
+    "beautifulsoup4": "bs4",
+    "pyyaml": "yaml",
+    "scikit-learn": "sklearn",
 }
 
 # Valid pip dependency: package name with optional version specifier, no flags or URLs
@@ -36,7 +44,9 @@ def install_dependencies(deps: list[str]) -> None:
         if not _VALID_DEP_RE.match(dep):
             raise RuntimeError(f"Invalid dependency format: {dep!r}")
         pkg_name = dep.split("==")[0].split(">=")[0].split("<=")[0].split("~=")[0].split("!=")[0].split("[")[0].strip().lower()
-        if pkg_name not in PRE_INSTALLED:
+        import_name = IMPORT_NAMES.get(pkg_name, pkg_name.replace("-", "_"))
+        is_available = importlib.util.find_spec(import_name) is not None
+        if pkg_name not in PRE_INSTALLED or not is_available:
             to_install.append(dep)
         else:
             print(f"PIP_SKIP: {dep} (pre-installed)", file=sys.stderr)
