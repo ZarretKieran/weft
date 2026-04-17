@@ -62,6 +62,8 @@ cp .env.example .env
 
 Open http://localhost:5173 and build your first project. A tour of the dashboard and a walkthrough of the language live in the [Getting Started](https://weavemind.ai/docs/hello-world) guide.
 
+If this checkout is being used as a customized local Weft build, follow [docs/local-git-flow.md](docs/local-git-flow.md) for the branch, fork, and upstream-sync policy. Do not auto-pull into the customized checkout.
+
 ### VS Code
 
 From the parent workspace, run the **Dev Local All** task to start both the server and the dashboard in split terminals.
