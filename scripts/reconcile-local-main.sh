@@ -92,10 +92,37 @@ prepare_local_main() {
   log "Preparing local canonical checkout in $WEFT_DIR"
   git -C "$WEFT_DIR" config rerere.enabled true
   git -C "$WEFT_DIR" checkout "$LOCAL_BRANCH" >/dev/null 2>&1
+  snapshot_local_changes_if_needed "$WEFT_DIR"
   git -C "$WEFT_DIR" fetch personal --prune
   git -C "$WEFT_DIR" fetch origin --prune
-  git -C "$WEFT_DIR" pull --ff-only personal "$LOCAL_BRANCH"
-  snapshot_local_changes_if_needed "$WEFT_DIR"
+  reconcile_personal_main
+}
+
+reconcile_personal_main() {
+  local personal_head
+  personal_head="$(git -C "$WEFT_DIR" rev-parse "personal/$LOCAL_BRANCH")"
+
+  if git -C "$WEFT_DIR" merge-base --is-ancestor "$personal_head" HEAD; then
+    log "Local main already contains personal/$LOCAL_BRANCH."
+    return 0
+  fi
+
+  if git -C "$WEFT_DIR" merge-base --is-ancestor HEAD "$personal_head"; then
+    log "Fast-forwarding local main from personal/$LOCAL_BRANCH."
+    git -C "$WEFT_DIR" merge --ff-only "$personal_head"
+    return 0
+  fi
+
+  log "Local main and personal/$LOCAL_BRANCH diverged. Merging personal/$LOCAL_BRANCH into local main."
+  if git -C "$WEFT_DIR" merge --no-ff --no-edit "$personal_head"; then
+    log "personal/$LOCAL_BRANCH merge completed cleanly."
+    return 0
+  fi
+
+  log "Merge with personal/$LOCAL_BRANCH reported conflicts. Resolve them in $WEFT_DIR, then run:"
+  log "  git -C $WEFT_DIR merge --continue"
+  log "  git -C $WEFT_DIR push personal $LOCAL_BRANCH"
+  exit 2
 }
 
 merge_upstream_into_local_main() {

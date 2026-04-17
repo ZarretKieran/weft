@@ -30,6 +30,9 @@ This setup has two distinct roles. Keep them separate.
   - Active branch in `/Users/zarretkieran/weft`.
   - Local Weft changes land here first.
   - This branch should match `personal/main` after every successful sync run.
+- `local/minimax-support`
+  - Legacy branch from an earlier workflow.
+  - Ignore it for new work unless you are intentionally recovering historical context.
 - `upstream-main`
   - Branch used only inside `/Users/zarretkieran/weft-upstream`.
   - Mirrors upstream `origin/main`.
@@ -76,7 +79,7 @@ What it does:
 
 1. Updates `/Users/zarretkieran/weft-upstream` with `fetch` plus `pull --ff-only`.
 2. Checks out `/Users/zarretkieran/weft/main`.
-3. Fast-forwards local `main` from `personal/main`.
+3. Reconciles local `main` with `personal/main`, using a fast-forward when possible and a normal merge if they diverged.
 4. Creates an automatic snapshot commit if there are unstaged or uncommitted local source changes.
 5. Merges `origin/main` into local `main`.
 6. Pushes the merged result to `personal/main`.
