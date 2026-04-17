@@ -27,6 +27,7 @@ impl Node for LlmConfigNode {
                 ..Default::default()
             },
             fields: vec![
+                FieldDef::select("provider", vec!["openrouter", "minimax"]),
                 FieldDef::api_key("apiKey", "openrouter"),
                 FieldDef::text("model"),
                 FieldDef::textarea("systemPrompt"),

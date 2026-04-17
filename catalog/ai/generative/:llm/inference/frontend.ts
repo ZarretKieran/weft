@@ -5,14 +5,16 @@ import { isInputConnected, getConnectedNodeType } from '$lib/validation';
 export const LlmNode: NodeTemplate = {
 	type: 'LlmInference',
 	label: 'LLM',
-	description: 'AI language model completion. Works out of the box with platform credits (default: anthropic/claude-sonnet-4.6). Optionally connect an LlmConfig node for BYOK or to override any parameter.',
+	description: 'AI language model completion. Supports OpenRouter out of the box and native MiniMax via MiniMax API key or env var. Optionally connect an LlmConfig node for shared config and BYOK.',
 	isBase: true,
 	icon: BrainCircuit,
 	color: '#7c6f9f',
 	category: 'AI',
 	tags: ['ai', 'gpt', 'claude', 'completion', 'chat', 'generate'],
 	fields: [
-		{ key: 'model', label: 'Model', type: 'text', placeholder: 'anthropic/claude-sonnet-4.6', description: 'OpenRouter model slug. Default: anthropic/claude-sonnet-4.6. Prefer cheaper models (anthropic/claude-haiku-4.5, openai/gpt-4o-mini) when the task allows.' },
+		{ key: 'provider', label: 'Provider', type: 'select', options: ['openrouter', 'minimax'], description: 'openrouter uses OPENROUTER_API_KEY/platform credits. minimax uses MINIMAX_API_KEY or your own MiniMax key.' },
+		{ key: 'apiKey', label: 'API Key', type: 'api_key', provider: 'openrouter' },
+		{ key: 'model', label: 'Model', type: 'text', placeholder: 'anthropic/claude-sonnet-4.6', description: 'Model slug for the selected provider. Examples: anthropic/claude-sonnet-4.6 on OpenRouter, MiniMax-M2.7 on MiniMax.' },
 		{ key: 'systemPrompt', label: 'System prompt', type: 'textarea', placeholder: '(empty)', description: 'Optional system prompt. Empty by default.' },
 		{ key: 'temperature', label: 'Temperature', type: 'number', placeholder: '0.7', description: '0.0–2.0. Higher = more creative.' },
 		{ key: 'maxTokens', label: 'Max tokens', type: 'number', placeholder: 'provider default' },

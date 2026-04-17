@@ -30,6 +30,8 @@ impl Node for LlmNode {
                 ..Default::default()
             },
             fields: vec![
+                FieldDef::select("provider", vec!["openrouter", "minimax"]),
+                FieldDef::api_key("apiKey", "openrouter"),
                 FieldDef::text("model"),
                 FieldDef::textarea("systemPrompt"),
                 FieldDef::number("maxTokens"),
@@ -58,6 +60,10 @@ impl Node for LlmNode {
         let model = config_source.get("model")
             .and_then(|v| v.as_str())
             .unwrap_or("anthropic/claude-sonnet-4.6");
+
+        let provider = config_source.get("provider")
+            .and_then(|v| v.as_str())
+            .unwrap_or("openrouter");
         
         // systemPrompt priority: input port (wired edge or config-fill via A2)
         // -> LlmConfig's config output -> this node's own config field -> "".
@@ -107,13 +113,13 @@ impl Node for LlmNode {
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
-        let completion_ctx = match ctx.tracked_ai_context("openrouter", model, llm_config.as_ref()).await {
+        let completion_ctx = match ctx.tracked_ai_context(provider, model, llm_config.as_ref()).await {
             Ok(c) => c,
             Err(e) => return NodeResult::failed(&e),
         };
 
-        tracing::info!("LLM request: model={}, prompt_len={}, parse_json={}, reasoning={}",
-            model, prompt.len(), parse_json, reasoning_enabled);
+        tracing::info!("LLM request: provider={}, model={}, prompt_len={}, parse_json={}, reasoning={}",
+            provider, model, prompt.len(), parse_json, reasoning_enabled);
 
         let root = ChatNode::root(system_prompt);
         let user_node = root.add_user(prompt);

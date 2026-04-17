@@ -516,12 +516,17 @@ start_dashboard() {
     cd "$SCRIPT_DIR/dashboard"
     
     # Configuration
-    DEV_PORT=5173
-    MIN_NODE_VERSION=18
+    DEV_PORT=5174
+    MIN_NODE_VERSION=20
     
     # Step 1: Check dependencies
     echo -e "\n${BLUE}[1/4] Checking dependencies...${NC}"
     
+    # Prefer a supported Homebrew Node on macOS when available.
+    if [[ "$(uname)" == "Darwin" ]] && [[ -x /opt/homebrew/opt/node@24/bin/node ]]; then
+        export PATH="/opt/homebrew/opt/node@24/bin:$PATH"
+    fi
+
     # Check Node.js
     if ! command_exists node; then
         echo -e "${RED}Node.js not found. Please install Node.js first.${NC}"
@@ -539,10 +544,25 @@ start_dashboard() {
     
     # Check pnpm
     if ! command_exists pnpm; then
+        for candidate in "$HOME/Library/pnpm" "$HOME/.local/share/pnpm"; do
+            if [ -d "$candidate" ]; then
+                export PNPM_HOME="$candidate"
+                export PATH="$PNPM_HOME:$PATH"
+                break
+            fi
+        done
+    fi
+
+    if ! command_exists pnpm; then
         echo -e "${YELLOW}pnpm not found. Installing...${NC}"
         curl -fsSL https://get.pnpm.io/install.sh | sh -
-        export PNPM_HOME="$HOME/.local/share/pnpm"
-        export PATH="$PNPM_HOME:$PATH"
+        for candidate in "$HOME/Library/pnpm" "$HOME/.local/share/pnpm"; do
+            if [ -d "$candidate" ]; then
+                export PNPM_HOME="$candidate"
+                export PATH="$PNPM_HOME:$PATH"
+                break
+            fi
+        done
     fi
     
     if ! command_exists pnpm; then

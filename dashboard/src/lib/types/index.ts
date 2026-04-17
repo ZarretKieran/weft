@@ -363,7 +363,7 @@ export interface PortDefinition {
 // =============================================================================
 
 // TODO: add 'openai' and 'anthropic' providers when we support direct API keys for those
-export type ApiKeyProvider = "openrouter" | "elevenlabs" | "tavily" | "apollo";
+export type ApiKeyProvider = "openrouter" | "minimax" | "elevenlabs" | "tavily" | "apollo";
 
 export type FieldType = "text" | "textarea" | "code" | "select" | "multiselect" | "number" | "checkbox" | "password" | "blob" | "api_key" | "form_builder";
 
@@ -965,4 +965,3 @@ export interface ProjectValidationResult {
 	valid: boolean;
 	nodeErrors: Map<string, ValidationError[]>;
 }
-

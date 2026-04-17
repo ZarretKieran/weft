@@ -681,6 +681,7 @@ impl ExecutionContext {
         } else {
             let env_var = match provider {
                 "openrouter" => "OPENROUTER_API_KEY",
+                "minimax" => "MINIMAX_API_KEY",
                 "elevenlabs" => "ELEVENLABS_API_KEY",
                 "tavily" => "TAVILY_API_KEY",
                 "apollo" => "APOLLO_API_KEY",
@@ -879,6 +880,8 @@ impl ExecutionContext {
 
         let generator = match provider {
             "openrouter" => minillmlib::GeneratorInfo::openrouter(model).with_api_key(&resolved.key),
+            "minimax" => minillmlib::GeneratorInfo::custom("MiniMax", "https://api.minimax.io/v1", model)
+                .with_api_key(&resolved.key),
             _ => return Err(format!("Unknown provider: {}", provider)),
         };
 

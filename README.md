@@ -51,7 +51,7 @@ Rust, Restate, and pnpm are installed automatically if missing.
 git clone https://github.com/WeaveMindAI/weft.git
 cd weft
 cp .env.example .env
-# Edit .env to add your API keys (OpenRouter, Tavily, etc.)
+# Edit .env to add your API keys (OpenRouter, MiniMax, Tavily, etc.)
 
 # Terminal 1: backend (auto-installs deps, starts PostgreSQL, Restate, all services)
 ./dev.sh server
@@ -71,7 +71,8 @@ From the parent workspace, run the **Dev Local All** task to start both the serv
 All keys are optional. Nodes that need one show a clear error at run time if the key is missing.
 
 ```bash
-OPENROUTER_API_KEY=     # LLM nodes (OpenRouter)
+OPENROUTER_API_KEY=     # LLM nodes via OpenRouter
+MINIMAX_API_KEY=        # LLM nodes via native MiniMax API
 TAVILY_API_KEY=         # Web Search nodes
 ELEVENLABS_API_KEY=     # Speech-to-Text nodes
 APOLLO_API_KEY=         # Apollo enrichment nodes
